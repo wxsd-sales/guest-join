@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html>
+  <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <link rel="icon" type="image/png" href="static/img/favicon.ico" />
+      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+      <script src="https://kit.fontawesome.com/f4a0e6453b.js" crossorigin="anonymous"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.0/socket.io.min.js"></script>
+      <title>Guest Join</title>
+      <style>
+          .column.is-centered {
+              display: flex;
+              justify-content: center;
+          }
+
+          .my-hero-fullheight {
+            height: calc(100vh - 72px)
+          }
+
+          .is-vcentered {
+              display: flex;
+              flex-wrap: wrap;
+              align-content: center;
+          }
+
+          .iframe {
+              width:100%;
+              min-height: 600px;
+          }
+
+          #meeting_video {
+              min-height: 300px;
+          }
+
+          #meeting_video_column {
+            background:url(static/img/loading.gif) center center no-repeat;
+          }
+
+          #hero-section {
+              border-radius: 6px;
+          }
+      </style>
+  </head>
+  <body>
+    <div id="header-box" class="columns is-centered is-info has-background-info mt-0">
+        <div class="column is-centered">
+            <h1 id='main-title' class="title">Guest Join</h1>
+        </div>
+    </div>
+    <section id="hero-section" class="hero my-hero-fullheight">
+        <div id="hero-content" class="hero-body has-text-centered pt-0">
+            <div id="main-div" class="container">
+                <div id="meeting_form">
+                    <div class="columns is-mobile is-centered pt-5">
+                        <div class="column is-narrow py-0">
+                            <div id="main-notification" class="notification has-text-centered" style="visibility: hidden;">
+                                Notification
+                            </div>
+                        </div>
+                    </div>
+                    <div class="columns is-centered mb-0">
+                        <div class="column is-3">
+                            <input id="name-input" class="input mb-1" type="text" placeholder="Enter your name.">
+                            <input id="address-input" class="input mb-1" type="text" placeholder="Enter a Webex PMR, address, or meeting number.">
+                            <button id="join" class="button is-info">
+                                <span class="pb-1">Join</span>
+                                <span class="icon">
+                                    <i class="fas fa-right-to-bracket"></i>
+                                </span>
+                            </button>
+                            <button id="get-link" class="button is-info">
+                                <span class="pb-1">Get Link</span>
+                                <span class="icon">
+                                    <i class="fas fa-link"></i>
+                                </span>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="copy-link-div" style="display:none;">
+                        <div class="columns is-centered mb-0">
+                            <div class="column is-3">
+                                <div class="field has-addons">
+                                    <div class="control">
+                                    <input id="link-input" class="input" type="text" placeholder="" disabled>
+                                    </div>
+                                    <div class="control">
+                                    <a id="copy-link" class="button is-info">
+                                        <span class="">Copy</span>
+                                        <span class="icon">
+                                            <i id="copy-link-icon" class="fas fa-copy"></i>
+                                        </span>
+                                    </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="copy-notification" class="columns is-centered mb-0" style="display:none;">
+                            <div class="column is-narrow">
+                                <div class="notification has-text-centered is-success py-2 px-2">
+                                    Link copied to clipboard.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="meeting_video" class="columns is-centered" style="display:none;">
+                    <div id="meeting_video_column" class="column is-10"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+  </body>
+  <script src="https://code.jquery.com/jquery-3.7.0.min.js" integrity="sha256-2Pmvv0kuTBOenSvLm6bvfBSSHrUJ+3A7x6P5Ebd07/g=" crossorigin="anonymous"></script>
+  <script type="text/javascript">
+
+    function setErrorNotification(message){
+        $('#main-notification').removeClass('is-success');
+        $('#main-notification').addClass('is-danger');
+        $('#main-notification').text(message);
+        $('#main-notification').css('visibility','visible');
+    }
+
+    function setSuccessNotification(message){
+        $('#main-notification').removeClass('is-danger');
+        $('#main-notification').addClass('is-success');
+        $('#main-notification').text(message);
+        $('#main-notification').css('visibility','visible');
+    }
+
+    function resetCopyButton(){
+        $("#copy-link").addClass('is-info');
+        $("#copy-link").removeClass('is-success');
+        $('#copy-link-icon').addClass('fa-copy');
+        $('#copy-link-icon').removeClass('fa-check');
+        $('#copy-notification').fadeOut();
+    }
+
+    function copyLink(e) {
+        // Get the text field
+        var copyText = document.getElementById('link-input');
+
+        // Select the text field
+        copyText.select();
+        copyText.setSelectionRange(0, 99999); // For mobile devices
+
+        // Copy the text inside the text field
+        navigator.clipboard.writeText(copyText.value);
+
+        $("#copy-link").addClass('is-success');
+        $("#copy-link").removeClass('is-info');
+        $('#copy-link-icon').addClass('fa-check');
+        $('#copy-link-icon').removeClass('fa-copy');
+        $('#copy-notification').show();
+
+        setTimeout(resetCopyButton, 5000);
+    } 
+    
+    $(document).ready(function() {
+
+    });
+
+    $('#get-link').on('click', function(e){
+        let name = $('#name-input').val();
+        if(name.length < 3){
+            setErrorNotification("Name must be at least 3 characters long.")
+        } else {
+            let address = $('#address-input').val();
+            $('#main-notification').css('visibility','hidden');
+            $(`#get-link`).addClass('is-loading');
+            $.post("/get-link", JSON.stringify({"name":name, "address":address}), function(result){
+                let data = JSON.parse(result);
+                console.log(data);
+                $(`#get-link`).removeClass('is-loading');
+                if(data['error']){
+                    setErrorNotification(data['error']);
+                } else {
+                    console.log('success!');
+                    $('#link-input').val(data['url']);
+                    $('#copy-link-div').show();
+                }
+            });
+        }
+    });
+
+    $('#copy-link').on('click', copyLink);
+
+    $('#join').on('click', function(e){
+        let name = $('#name-input').val();
+        if(name.length < 3){
+            setErrorNotification("Name must be at least 3 characters long.")
+        } else {
+            let address = $('#address-input').val();
+            $('#main-notification').css('visibility','hidden');
+            $(`#join`).addClass('is-loading');
+            $.post("/join", JSON.stringify({"name":name, "address":address}), function(result){
+                let data = JSON.parse(result);
+                console.log(data);
+                if(data['error']){
+                    $(`#join`).removeClass('is-loading');
+                    setErrorNotification(data['error']);
+                } else {
+                    console.log('success!');
+                    $('#meeting_video_column').append(
+                        $(`<iframe src="${data['url']}" allow="camera;microphone;" class="iframe"></iframe>`).on("load", function() {
+                            $(`#join`).removeClass('is-loading');
+                            $('#meeting_form').hide();
+                            $('#meeting_video').show();
+                        })
+                    );
+                    //$('#meeting_video_column').append($(`<iframe src="${data['url']}" allow="camera;microphone;" style="width:400px;height:300px;"></iframe>`));
+                    
+                    var socket = io('soapbox.wbx.ninja', {query:`room=${data['session_id']}`});
+                    socket.on('message', function(msg) {
+                        console.log('****** msg:');
+                        console.log(msg);
+                        if(msg['data']['event'] == "members-update"){
+                            if(msg['data']['payload'] && msg['data']['payload']['updated'].length > 0){
+                                for(let person of msg['data']['payload']['updated']){
+                                    if(person['name'] == name && person['status'] == "NOT_IN_MEETING"){
+                                        $('#meeting_video').hide();
+                                        $('#meeting_video_column').empty();
+                                        $('#meeting_form').show();
+                                    }
+                                }
+                            } else {
+                                console.log('no updated payload')
+                            }
+                        } else {
+                            console.log('not members-update event');
+                        }
+                        console.log('****** end.');
+                    });
+                }
+            });
+        }
+    })
+
+  </script>
+</html>
